@@ -8,14 +8,14 @@ Regras de negócio:
      → O script tenta 1200 primeiro; se não houver combinação válida, tenta 1000, depois 1500
   4. Complementares: outras matrizes da mesma espessura + tipo que preenchem o espaço restante
   5. Uma combinação é VÁLIDA quando:
-        perda_mm  = largura_bobina - Σ (Desenvolvimento_i × N_cortes_i)
-        perda_%   = perda_mm / largura_bobina × 100
+        perda_mm  = largura_bobina - Σ (Desenvolvimento_i x N_cortes_i)
+        perda_%   = perda_mm / largura_bobina x 100
         0,67% ≤ perda_% ≤ 1,70%
   6. LIMITE DE CORTES (opcional): o usuário pode informar um número máximo para a SOMA total
      de cortes de uma combinação (restrição de máquina). Se vazio, sem limite.
   7. QUANTIDADE DE KG por combinação (calculada por matriz):
         Peso_médio_bobina = Peso_informado / Qtd_bobinas  (se não informado: 12.000 / 1 = 12.000 kg)
-        KG_i = (Peso_médio_bobina / Largura_bobina) × (N_cortes_i × Desenvolvimento_i × Qtd_bobinas)
+        KG_i = (Peso_médio_bobina / Largura_bobina) x (N_cortes_i x Desenvolvimento_i x Qtd_bobinas)
 """
 
 import os
