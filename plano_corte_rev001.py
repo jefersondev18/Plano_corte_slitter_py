@@ -31,4 +31,14 @@ db_plano_corte = pd.read_excel(os.path.join(BASE_INPUT, 'db_plano_corte.xlsx'))
 # máximo 1,7%
 #perda_percentual = perda_milimetros / Largura da bobina
 
+#Regra de negócio.
+
+'''
+Usuário escolhe os parametros:
+espessura, tipo de material e uma matriz
+
+o script precisa retornar todas as combinações de matrizes da mesma espessura e tipo, que consiga manter o percentual de perda entre (0,67% e 1,7%)
+
+
+'''
 
