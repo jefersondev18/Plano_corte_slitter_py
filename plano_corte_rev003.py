@@ -14,13 +14,14 @@ Regras de negócio:
   6. LIMITE DE CORTES (opcional): o usuário pode informar um número máximo para a SOMA total
      de cortes de uma combinação (restrição de máquina). Se vazio, sem limite.
   7. QUANTIDADE DE KG por combinação (calculada por matriz):
-        Peso_total_bobinas = Qtd_bobinas × Peso_médio_bobina
-        KG_i = (Peso_total_bobinas / Largura_bobina) × (N_cortes_i × Desenvolvimento_i × Qtd_bobinas)
+        Peso_médio_bobina = Peso_informado / Qtd_bobinas  (se não informado: 12.000 / 1 = 12.000 kg)
+        KG_i = (Peso_médio_bobina / Largura_bobina) × (N_cortes_i × Desenvolvimento_i × Qtd_bobinas)
 """
 
 import os
 import platform
 import pandas as pd
+import openpyxl
 from itertools import combinations, product as iproduct
 
 # ──────────────────────────────────────────────
@@ -338,14 +339,16 @@ def exportar_xlsx(df_res: pd.DataFrame, largura: int,
             c.number_format = fmt
         return c
 
-    # ── Pré-calcula KG por combinação ──
-    peso_total_bob = qtd_bobinas * peso_medio_bob   # kg total das bobinas
+    # ── Pré-calcula Peso médio por bobina ──
+    # Peso médio = peso informado pelo usuário / quantidade de bobinas
+    # (se usuário informou 12000 kg e 4 bobinas → média = 3000 kg/bobina)
+    peso_medio_calc = peso_medio_bob / qtd_bobinas
 
     def calc_kg_combo(detalhes: list[dict]) -> float:
         """KG total da combinação = soma dos KG de cada matriz."""
         total = 0.0
         for det in detalhes:
-            total += (peso_total_bob / largura) * (det['N_cortes'] * det['Desenvolvimento_mm'] * qtd_bobinas)
+            total += (peso_medio_calc / largura) * (det['N_cortes'] * det['Desenvolvimento_mm'] * qtd_bobinas)
         return round(total, 2)
 
     # ── ABA 1: Combinações ──
@@ -363,8 +366,8 @@ def exportar_xlsx(df_res: pd.DataFrame, largura: int,
         ("Padrões Testados",     " → ".join(str(l) for l in LARGURAS_BOBINA) + f"  (usado: {largura} mm)"),
         ("Limite de Cortes",     limite_str),
         ("Qtd. de Bobinas",      str(qtd_bobinas)),
-        ("Peso Médio / Bobina",  f"{peso_medio_bob:,.0f} kg  ({peso_medio_bob/1000:.1f} ton)"),
-        ("Peso Total Bobinas",   f"{peso_total_bob:,.0f} kg  ({peso_total_bob/1000:.1f} ton)"),
+        ("Peso Informado",        f"{peso_medio_bob:,.0f} kg  ({peso_medio_bob/1000:.1f} ton)"),
+        ("Peso Médio / Bobina",   f"{peso_medio_calc:,.0f} kg  ({peso_medio_calc/1000:.2f} ton)"),
         ("Perda Mínima Aceita",  f"{PERDA_MIN_PCT}%  ({largura * PERDA_MIN_PCT / 100:.2f} mm)"),
         ("Perda Máxima Aceita",  f"{PERDA_MAX_PCT}%  ({largura * PERDA_MAX_PCT / 100:.2f} mm)"),
         ("Total de Combinações", len(df_res)),
@@ -418,7 +421,7 @@ def exportar_xlsx(df_res: pd.DataFrame, largura: int,
             papel  = "ÂNCORA" if j == 0 else "Complementar"
             bg_det = AMAR if j == 0 else BRAN
             kg_det = round(
-                (peso_total_bob / largura) * (det['N_cortes'] * det['Desenvolvimento_mm'] * qtd_bobinas), 2
+                (peso_medio_calc / largura) * (det['N_cortes'] * det['Desenvolvimento_mm'] * qtd_bobinas), 2
             )
             cel(ws2, r, 1, i + 1,                     align="center")
             cel(ws2, r, 2, papel,     bg=bg_det,       align="center", bold=(j == 0))
