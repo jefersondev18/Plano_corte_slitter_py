@@ -1,3 +1,5 @@
+
+
 """
 Plano de Corte — Otimizador de Combinações de Matrizes
 =======================================================
@@ -16,9 +18,13 @@ Regras de negócio:
   7. QUANTIDADE DE KG por combinação (calculada por matriz):
         Peso_médio_bobina = Peso_informado / Qtd_bobinas  (se não informado: 12.000 / 1 = 12.000 kg)
         KG_i = (Peso_médio_bobina / Largura_bobina) x (N_cortes_i x Desenvolvimento_i x Qtd_bobinas)
-"""
 
-#ssss
+ 8. Até 3,00 MM de espessura - No mínimo 10 MM de refilo considerando a largura nominal
+    Acima de 3,00 MM de espessura - No mínimo14 MM de refilo considerando a largura nominal.
+
+
+
+"""
 
 import os
 import platform
@@ -26,13 +32,31 @@ import pandas as pd
 import openpyxl
 from itertools import combinations, product as iproduct
 
+from datetime import datetime
+
 # ──────────────────────────────────────────────
 #  PATHS
 # ──────────────────────────────────────────────
+
+
+
 SO = platform.system()
+
+
+def get_current_user():
+    if SO == 'Windows':
+        return os.getenv('USERNAME')
+    else:
+        return os.getenv('USER')
+
+USUARIO = get_current_user()
+print(f"Usuário: {USUARIO}")
+
+
+
 if SO == 'Windows':
-    BASE_INPUT  = r'C:\Users\marce\OneDrive\Documentos\GitHub\plano_corte\input'
-    BASE_OUTPUT = r'C:\Users\marce\OneDrive\Documentos\GitHub\plano_corte\output'
+    BASE_INPUT  = r'C:\Users\jefersson.souza\OneDrive - Açotel Indústria e Comércio LTDA\Dev\Plano_corte_py\files\input'
+    BASE_OUTPUT = r'C:\Users\jefersson.souza\OneDrive - Açotel Indústria e Comércio LTDA\Dev\Plano_corte_py\files\output'
 elif SO == 'Linux':
     BASE_INPUT  = r'/home/stark/Documentos/Dev/Plano_corte_py/files/input'
     BASE_OUTPUT = r'/home/stark/Documentos/Dev/Plano_corte_py/files/output'
@@ -44,8 +68,8 @@ else:
 # ──────────────────────────────────────────────
 LARGURAS_BOBINA     = [1200, 1000, 1500]   # ordem de tentativa
 PERDA_MIN_PCT       = 0.67                 # % mínimo de perda aceito
-PERDA_MAX_PCT       = 1.70                 # % máximo de perda aceito
-MAX_COMP_NA_COMBO   = 2                    # máx de matrizes COMPLEMENTARES por combinação
+PERDA_MAX_PCT       = 1.68                 # % máximo de perda aceito
+MAX_COMP_NA_COMBO   = 1                    # máx de matrizes COMPLEMENTARES por combinação
 
 # KG — padrões para o cálculo de quantidade
 PESO_MEDIO_BOB_PAD  = 12_000               # kg (12 ton) — pode ser sobrescrito pelo usuário
@@ -249,7 +273,7 @@ def encontrar_combinacoes(
         )
 
         if resultados:
-            print(f"{len(resultados)} combinações encontradas. ✓")
+            print(f"{len(resultados)} combinações encontradas.")
             df_res = (
                 pd.DataFrame(resultados)
                 .sort_values(['Perda_pct', 'N_ancora', 'Num_comp'])
@@ -399,7 +423,7 @@ def exportar_xlsx(df_res: pd.DataFrame, largura: int,
         cel(ws1, r, 6, row['Perda_mm'],          bg=bg,   align="right", fmt='#,##0.000')
         cel(ws1, r, 7, row['Perda_pct'] / 100,  bg=bg,   align="right", fmt='0.0000%')
         cel(ws1, r, 8, kg,                       bg=ROXO, align="right", fmt='#,##0.00')
-        cel(ws1, r, 9, "✓ Válida",               bg=bg,   align="center")
+        cel(ws1, r, 9, "Válida",               bg=bg,   align="center")
         ws1.row_dimensions[r].height = 16
 
     for col, w in zip("ABCDEFGHI", [5, 52, 10, 13, 18, 13, 12, 16, 10]):
@@ -439,7 +463,7 @@ def exportar_xlsx(df_res: pd.DataFrame, largura: int,
 
     os.makedirs(os.path.dirname(caminho) if os.path.dirname(caminho) else ".", exist_ok=True)
     wb.save(caminho)
-    print(f"\n  ✓ Resultado exportado: {caminho}")
+    print(f"\n Resultado exportado: {caminho}")
 
 
 # ──────────────────────────────────────────────
@@ -557,7 +581,15 @@ def main():
 
     if not df_res.empty:
         ancora_safe = ancora.replace('/', '_').replace('"', 'in').replace(',', '-').replace(' ', '_')
-        nome = f"plano_{ancora_safe}_esp{str(esp).replace('.', '-')}_{tipo.replace(' ', '_')}_L{largura}.xlsx"
+        agora = datetime.now()
+        #nome = f"plano_{ancora_safe}_esp{str(esp).replace('.', '-')}_{tipo.replace(' ', '_')}_L{largura}.xlsx"
+        
+        timestamp = agora.strftime('%Y%m%d_%H%M%S')
+        esp_formatado = str(esp).replace('.', '-')
+        tipo_formatado = tipo.replace(' ', '_')
+
+        nome = f"plano_{ancora_safe}_esp{esp_formatado}_{tipo_formatado}_L{largura}_{timestamp}.xlsx"
+
         exportar_xlsx(
             df_res, largura, ancora, esp, tipo,
             os.path.join(BASE_OUTPUT, nome),
@@ -569,3 +601,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
