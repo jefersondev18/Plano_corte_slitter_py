@@ -22,14 +22,28 @@ import os
 import platform
 import pandas as pd
 from itertools import combinations, product as iproduct
-
+from datetime import datetime
 # ──────────────────────────────────────────────
 #  PATHS
 # ──────────────────────────────────────────────
+
+
 SO = platform.system()
+
+
+def get_current_user():
+    if SO == 'Windows':
+        return os.getenv('USERNAME')
+    else:
+        return os.getenv('USER')
+
+USUARIO = get_current_user()
+print(f"Usuário: {USUARIO}")
+
+
 if SO == 'Windows':
-    BASE_INPUT  = r'C:\Users\marce\OneDrive\Documentos\GitHub\plano_corte\input'
-    BASE_OUTPUT = r'C:\Users\marce\OneDrive\Documentos\GitHub\plano_corte\output'
+    BASE_INPUT  = r'C:\Users\jefersson.souza\OneDrive - Açotel Indústria e Comércio LTDA\Dev\Plano_corte_py\files\input'
+    BASE_OUTPUT = r'C:\Users\jefersson.souza\OneDrive - Açotel Indústria e Comércio LTDA\Dev\Plano_corte_py\files\output'
 elif SO == 'Linux':
     BASE_INPUT  = r'/home/stark/Documentos/Dev/Plano_corte_py/files/input'
     BASE_OUTPUT = r'/home/stark/Documentos/Dev/Plano_corte_py/files/output'
@@ -42,7 +56,7 @@ else:
 LARGURAS_BOBINA     = [1200, 1000, 1500]   # ordem de tentativa
 PERDA_MIN_PCT       = 0.67                 # % mínimo de perda aceito
 PERDA_MAX_PCT       = 1.70                 # % máximo de perda aceito
-MAX_COMP_NA_COMBO   = 2                    # máx de matrizes COMPLEMENTARES por combinação
+MAX_COMP_NA_COMBO   = 1                    # máx de matrizes COMPLEMENTARES por combinação
 
 # REFILO — regras por espessura
 REFILO_MIN_ATE_3MM  = 10                   # mm mínimo de refilo para espessuras ≤ 3.0 mm
@@ -487,7 +501,7 @@ def exportar_xlsx(df_res: pd.DataFrame, largura: int,
 
     os.makedirs(os.path.dirname(caminho) if os.path.dirname(caminho) else ".", exist_ok=True)
     wb.save(caminho)
-    print(f"\n  ✓ Resultado exportado: {caminho}")
+    print(f"\n Resultado exportado: {caminho}")
 
 
 # ──────────────────────────────────────────────
@@ -509,7 +523,7 @@ def menu(df: pd.DataFrame) -> tuple[float, str, str, int | None, int, float]:
             esp = espessuras[int(input("\n  Número da espessura: ")) - 1]
             break
         except (ValueError, IndexError):
-            print("  ⚠ Inválido. Tente novamente.")
+            print("Inválido. Tente novamente.")
 
     # 2. Tipo de material
     tipos = listar_tipos(df, esp)
@@ -521,7 +535,7 @@ def menu(df: pd.DataFrame) -> tuple[float, str, str, int | None, int, float]:
             tipo = tipos[int(input("\n  Número do tipo: ")) - 1]
             break
         except (ValueError, IndexError):
-            print("  ⚠ Inválido. Tente novamente.")
+            print("Inválido. Tente novamente.")
 
     # 3. Matriz âncora
     tab = listar_matrizes(df, esp, tipo)
@@ -533,7 +547,7 @@ def menu(df: pd.DataFrame) -> tuple[float, str, str, int | None, int, float]:
             ancora = tab.iloc[int(input("\n  Número da MATRIZ ÂNCORA: ")) - 1]['Matriz']
             break
         except (ValueError, IndexError):
-            print("  ⚠ Inválido. Tente novamente.")
+            print("Inválido. Tente novamente.")
 
     # 4. Limite de cortes (opcional)
     print(f"\n[4] Limite máximo de cortes por combinação (restrição de máquina)")
@@ -549,7 +563,7 @@ def menu(df: pd.DataFrame) -> tuple[float, str, str, int | None, int, float]:
                 raise ValueError
             break
         except ValueError:
-            print("  ⚠ Digite um número inteiro positivo ou deixe em branco.")
+            print("Digite um número inteiro positivo ou deixe em branco.")
 
     # 5. Quantidade de bobinas
     print(f"\n[5] Quantidade de bobinas para cálculo de KG")
@@ -564,7 +578,7 @@ def menu(df: pd.DataFrame) -> tuple[float, str, str, int | None, int, float]:
                 raise ValueError
             break
         except ValueError:
-            print("  ⚠ Digite um número inteiro positivo.")
+            print("Digite um número inteiro positivo.")
 
     # 6. Peso médio por bobina
     print(f"\n[6] Peso médio por bobina (kg) para cálculo de KG")
@@ -579,7 +593,7 @@ def menu(df: pd.DataFrame) -> tuple[float, str, str, int | None, int, float]:
                 raise ValueError
             break
         except ValueError:
-            print("  ⚠ Digite um número positivo (ex: 12000 ou 15000).")
+            print("Digite um número positivo (ex: 12000 ou 15000).")
 
     return esp, tipo, ancora, limite_cortes, qtd_bobinas, peso_medio_bob
 
@@ -605,7 +619,19 @@ def main():
 
     if not df_res.empty:
         ancora_safe = ancora.replace('/', '_').replace('"', 'in').replace(',', '-').replace(' ', '_')
-        nome = f"plano_{ancora_safe}_esp{str(esp).replace('.', '-')}_{tipo.replace(' ', '_')}_L{largura}.xlsx"
+
+
+        #nome = f"plano_{ancora_safe}_esp{str(esp).replace('.', '-')}_{tipo.replace(' ', '_')}_L{largura}.xlsx"
+        agora = datetime.now()
+        timestamp = agora.strftime('%Y%m%d_%H%M%S')
+        esp_formatado = str(esp).replace('.', '-')
+        tipo_formatado = tipo.replace(' ', '_')
+
+        nome = f"plano_{ancora_safe}_esp{esp_formatado}_{tipo_formatado}_L{largura}_{timestamp}.xlsx"
+
+
+
+
         exportar_xlsx(
             df_res, largura, ancora, esp, tipo,
             os.path.join(BASE_OUTPUT, nome),
