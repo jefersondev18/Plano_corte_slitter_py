@@ -1,5 +1,3 @@
-
-
 """
 Plano de Corte — Otimizador de Combinações de Matrizes
 =======================================================
@@ -10,53 +8,28 @@ Regras de negócio:
      → O script tenta 1200 primeiro; se não houver combinação válida, tenta 1000, depois 1500
   4. Complementares: outras matrizes da mesma espessura + tipo que preenchem o espaço restante
   5. Uma combinação é VÁLIDA quando:
-        perda_mm  = largura_bobina - Σ (Desenvolvimento_i x N_cortes_i)
-        perda_%   = perda_mm / largura_bobina x 100
+        perda_mm  = largura_bobina - Σ (Desenvolvimento_i × N_cortes_i)
+        perda_%   = perda_mm / largura_bobina × 100
         0,67% ≤ perda_% ≤ 1,70%
   6. LIMITE DE CORTES (opcional): o usuário pode informar um número máximo para a SOMA total
      de cortes de uma combinação (restrição de máquina). Se vazio, sem limite.
   7. QUANTIDADE DE KG por combinação (calculada por matriz):
         Peso_médio_bobina = Peso_informado / Qtd_bobinas  (se não informado: 12.000 / 1 = 12.000 kg)
-        KG_i = (Peso_médio_bobina / Largura_bobina) x (N_cortes_i x Desenvolvimento_i x Qtd_bobinas)
-
- 8. Até 3,00 MM de espessura - No mínimo 10 MM de refilo considerando a largura nominal
-    Acima de 3,00 MM de espessura - No mínimo14 MM de refilo considerando a largura nominal.
-
-
-
+        KG_i = (Peso_médio_bobina / Largura_bobina) × (N_cortes_i × Desenvolvimento_i × Qtd_bobinas)
 """
 
 import os
 import platform
 import pandas as pd
-import openpyxl
 from itertools import combinations, product as iproduct
-
-from datetime import datetime
 
 # ──────────────────────────────────────────────
 #  PATHS
 # ──────────────────────────────────────────────
-
-
-
 SO = platform.system()
-
-
-def get_current_user():
-    if SO == 'Windows':
-        return os.getenv('USERNAME')
-    else:
-        return os.getenv('USER')
-
-USUARIO = get_current_user()
-print(f"Usuário: {USUARIO}")
-
-
-
 if SO == 'Windows':
-    BASE_INPUT  = r'C:\Users\jefersson.souza\OneDrive - Açotel Indústria e Comércio LTDA\Dev\Plano_corte_py\files\input'
-    BASE_OUTPUT = r'C:\Users\jefersson.souza\OneDrive - Açotel Indústria e Comércio LTDA\Dev\Plano_corte_py\files\output'
+    BASE_INPUT  = r'C:\Users\marce\OneDrive\Documentos\GitHub\plano_corte\input'
+    BASE_OUTPUT = r'C:\Users\marce\OneDrive\Documentos\GitHub\plano_corte\output'
 elif SO == 'Linux':
     BASE_INPUT  = r'/home/stark/Documentos/Dev/Plano_corte_py/files/input'
     BASE_OUTPUT = r'/home/stark/Documentos/Dev/Plano_corte_py/files/output'
@@ -68,8 +41,12 @@ else:
 # ──────────────────────────────────────────────
 LARGURAS_BOBINA     = [1200, 1000, 1500]   # ordem de tentativa
 PERDA_MIN_PCT       = 0.67                 # % mínimo de perda aceito
-PERDA_MAX_PCT       = 1.68                 # % máximo de perda aceito
-MAX_COMP_NA_COMBO   = 1                    # máx de matrizes COMPLEMENTARES por combinação
+PERDA_MAX_PCT       = 1.70                 # % máximo de perda aceito
+MAX_COMP_NA_COMBO   = 2                    # máx de matrizes COMPLEMENTARES por combinação
+
+# REFILO — regras por espessura
+REFILO_MIN_ATE_3MM  = 10                   # mm mínimo de refilo para espessuras ≤ 3.0 mm
+REFILO_MIN_ACIMA_3MM = 14                  # mm mínimo de refilo para espessuras > 3.0 mm
 
 # KG — padrões para o cálculo de quantidade
 PESO_MEDIO_BOB_PAD  = 12_000               # kg (12 ton) — pode ser sobrescrito pelo usuário
@@ -134,16 +111,27 @@ def _buscar_para_largura(
     largura: int,
     max_comp: int,
     limite_cortes: int | None = None,
+    espessura: float = 0.0,
 ) -> list[dict]:
     """
     Busca todas as combinações válidas para uma largura de bobina específica.
     A âncora é sempre obrigatória (N >= 1). Complementares são opcionais.
     limite_cortes: soma máxima de todos os N_cortes da combinação (None = sem limite).
+    espessura: usado para determinar o refilo mínimo obrigatório.
     Retorna lista de dicts com os resultados.
+    
+    Validação em cascata:
+      1. Perda % deve estar entre PERDA_MIN_PCT e PERDA_MAX_PCT
+      2. Perda mm deve ser >= refilo mínimo (10mm se esp≤3mm, 14mm se esp>3mm)
+      3. Se passar ambas: Status = "✓ Válida"
+      4. Se passar % mas não refilo: Status = "Fora da regra"
     """
     perda_min_mm = largura * PERDA_MIN_PCT / 100
     perda_max_mm = largura * PERDA_MAX_PCT / 100
     max_n_ancora = int(largura / dev_ancora)
+    
+    # Determina refilo mínimo pela espessura
+    refilo_min = REFILO_MIN_ATE_3MM if espessura <= 3.0 else REFILO_MIN_ACIMA_3MM
 
     resultados = []
 
@@ -156,8 +144,18 @@ def _buscar_para_largura(
         # ── Caso: só a âncora ──
         perda_mm = espaco_restante
         total_cortes_ancora = n_ancora
-        if (perda_min_mm <= perda_mm <= perda_max_mm and
-                (limite_cortes is None or total_cortes_ancora <= limite_cortes)):
+        
+        # Validação cascata: primeiro %, depois refilo
+        passa_pct = (perda_min_mm <= perda_mm <= perda_max_mm)
+        passa_refilo = (perda_mm >= refilo_min)
+        passa_cortes = (limite_cortes is None or total_cortes_ancora <= limite_cortes)
+        
+        if passa_pct and passa_cortes:
+            if passa_refilo:
+                status = "✓ Válida"
+            else:
+                status = "Fora da regra"
+            
             resultados.append({
                 'Combinacao':      f'{ancora}(x{n_ancora})',
                 'N_ancora':        n_ancora,
@@ -171,6 +169,7 @@ def _buscar_para_largura(
                 'Perda_mm':        round(perda_mm, 3),
                 'Perda_pct':       round(perda_mm / largura * 100, 4),
                 'Largura_bobina':  largura,
+                'Status':          status,
             })
 
         # ── Caso: âncora + complementares ──
@@ -198,7 +197,17 @@ def _buscar_para_largura(
                         continue
 
                     perda_mm = largura - soma_total
-                    if perda_min_mm <= perda_mm <= perda_max_mm:
+                    
+                    # Validação cascata
+                    passa_pct = (perda_min_mm <= perda_mm <= perda_max_mm)
+                    passa_refilo = (perda_mm >= refilo_min)
+                    
+                    if passa_pct:
+                        if passa_refilo:
+                            status = "✓ Válida"
+                        else:
+                            status = "Fora da regra"
+                        
                         detalhes = [
                             {'Matriz': ancora, 'Desenvolvimento_mm': dev_ancora,
                              'N_cortes': n_ancora, 'Subtotal_mm': round(soma_ancora, 3)}
@@ -218,6 +227,7 @@ def _buscar_para_largura(
                             'Perda_mm':        round(perda_mm, 3),
                             'Perda_pct':       round(perda_mm / largura * 100, 4),
                             'Largura_bobina':  largura,
+                            'Status':          status,
                         })
 
     return resultados
@@ -270,10 +280,11 @@ def encontrar_combinacoes(
         resultados = _buscar_para_largura(
             dev_ancora, matriz_ancora, mats_comp, devs_comp, largura, max_comp,
             limite_cortes=limite_cortes,
+            espessura=espessura,
         )
 
         if resultados:
-            print(f"{len(resultados)} combinações encontradas.")
+            print(f"{len(resultados)} combinações encontradas. ✓")
             df_res = (
                 pd.DataFrame(resultados)
                 .sort_values(['Perda_pct', 'N_ancora', 'Num_comp'])
@@ -302,6 +313,10 @@ def exibir(df_res: pd.DataFrame, largura: int,
     print(f"  Largura bobina : {largura} mm  (padrão usado)")
     print(f"  Janela de perda: {PERDA_MIN_PCT}% – {PERDA_MAX_PCT}%"
           f"  |  {largura * PERDA_MIN_PCT / 100:.2f} mm – {largura * PERDA_MAX_PCT / 100:.2f} mm")
+    
+    refilo_min = REFILO_MIN_ATE_3MM if esp <= 3.0 else REFILO_MIN_ACIMA_3MM
+    print(f"  Refilo mínimo  : {refilo_min} mm  (regra para esp {'≤' if esp <= 3.0 else '>'} 3.0 mm)")
+    
     if limite_cortes is not None:
         print(f"  Limite cortes  : {limite_cortes} cortes (soma total por combinação)")
 
@@ -312,16 +327,17 @@ def exibir(df_res: pd.DataFrame, largura: int,
         return
 
     print(f"  Combinações    : {len(df_res)}\n")
-    fmt = f"  {{:<5}} {{:<56}} {{:<12}} {{:<12}} {{}}"
-    print(fmt.format('#', 'Combinação', 'Soma (mm)', 'Perda (mm)', 'Perda (%)'))
-    print(fmt.format('-'*5, '-'*56, '-'*12, '-'*12, '-'*9))
+    fmt = f"  {{:<5}} {{:<48}} {{:<12}} {{:<12}} {{:<12}} {{}}"
+    print(fmt.format('#', 'Combinação', 'Soma (mm)', 'Perda (mm)', 'Perda (%)', 'Status'))
+    print(fmt.format('-'*5, '-'*48, '-'*12, '-'*12, '-'*12, '-'*16))
     for i, r in df_res.iterrows():
         print(fmt.format(
             i + 1,
-            r['Combinacao'][:55],
+            r['Combinacao'][:47],
             f"{r['Soma_cortes_mm']:.2f}",
             f"{r['Perda_mm']:.3f}",
-            f"{r['Perda_pct']:.4f}%"
+            f"{r['Perda_pct']:.4f}%",
+            r['Status']
         ))
     print(sep)
 
@@ -384,6 +400,9 @@ def exportar_xlsx(df_res: pd.DataFrame, largura: int,
     ws1.merge_cells("A1:I1")
 
     limite_str = str(limite_cortes) if limite_cortes is not None else "Sem limite"
+    refilo_min = REFILO_MIN_ATE_3MM if esp <= 3.0 else REFILO_MIN_ACIMA_3MM
+    refilo_regra = f"≤ 3.0 mm → {REFILO_MIN_ATE_3MM} mm | > 3.0 mm → {REFILO_MIN_ACIMA_3MM} mm"
+    
     params = [
         ("Matriz Âncora",        ancora),
         ("Espessura",            f"{esp} mm"),
@@ -391,6 +410,7 @@ def exportar_xlsx(df_res: pd.DataFrame, largura: int,
         ("Largura da Bobina",    f"{largura} mm"),
         ("Padrões Testados",     " → ".join(str(l) for l in LARGURAS_BOBINA) + f"  (usado: {largura} mm)"),
         ("Limite de Cortes",     limite_str),
+        ("Refilo Mínimo",        f"{refilo_min} mm  (regra: {refilo_regra})"),
         ("Qtd. de Bobinas",      str(qtd_bobinas)),
         ("Peso Informado",        f"{peso_medio_bob:,.0f} kg  ({peso_medio_bob/1000:.1f} ton)"),
         ("Peso Médio / Bobina",   f"{peso_medio_calc:,.0f} kg  ({peso_medio_calc/1000:.2f} ton)"),
@@ -415,20 +435,24 @@ def exportar_xlsx(df_res: pd.DataFrame, largura: int,
         r   = SR + 1 + i
         bg  = VERDE if i % 2 == 0 else CINZA
         kg  = calc_kg_combo(row['Detalhes'])
-        cel(ws1, r, 1, i + 1,                   bg=bg,   align="center")
-        cel(ws1, r, 2, row['Combinacao'],        bg=bg,   wrap=True)
-        cel(ws1, r, 3, row['N_ancora'],          bg=AMAR, align="center")
-        cel(ws1, r, 4, row['Total_cortes'],      bg=bg,   align="center")
-        cel(ws1, r, 5, row['Soma_cortes_mm'],    bg=bg,   align="right", fmt='#,##0.000')
-        cel(ws1, r, 6, row['Perda_mm'],          bg=bg,   align="right", fmt='#,##0.000')
-        cel(ws1, r, 7, row['Perda_pct'] / 100,  bg=bg,   align="right", fmt='0.0000%')
-        cel(ws1, r, 8, kg,                       bg=ROXO, align="right", fmt='#,##0.00')
-        cel(ws1, r, 9, "Válida",               bg=bg,   align="center")
+        
+        # Cor do status: verde se válida, laranja se fora da regra
+        status_val = row['Status']
+        status_bg  = VERDE if status_val == "✓ Válida" else "FFE0B2"  # laranja claro
+        
+        cel(ws1, r, 1, i + 1,                   bg=bg,        align="center")
+        cel(ws1, r, 2, row['Combinacao'],        bg=bg,        wrap=True)
+        cel(ws1, r, 3, row['N_ancora'],          bg=AMAR,      align="center")
+        cel(ws1, r, 4, row['Total_cortes'],      bg=bg,        align="center")
+        cel(ws1, r, 5, row['Soma_cortes_mm'],    bg=bg,        align="right", fmt='#,##0.000')
+        cel(ws1, r, 6, row['Perda_mm'],          bg=bg,        align="right", fmt='#,##0.000')
+        cel(ws1, r, 7, row['Perda_pct'] / 100,  bg=bg,        align="right", fmt='0.0000%')
+        cel(ws1, r, 8, kg,                       bg=ROXO,      align="right", fmt='#,##0.00')
+        cel(ws1, r, 9, status_val,               bg=status_bg, align="center")
         ws1.row_dimensions[r].height = 16
 
     for col, w in zip("ABCDEFGHI", [5, 52, 10, 13, 18, 13, 12, 16, 10]):
         ws1.column_dimensions[col].width = w
-    ws1.freeze_panes = ws1.cell(SR + 1, 1)
 
     # ── ABA 2: Detalhes (com KG por matriz) ──
     ws2.row_dimensions[1].height = 20
@@ -463,7 +487,7 @@ def exportar_xlsx(df_res: pd.DataFrame, largura: int,
 
     os.makedirs(os.path.dirname(caminho) if os.path.dirname(caminho) else ".", exist_ok=True)
     wb.save(caminho)
-    print(f"\n Resultado exportado: {caminho}")
+    print(f"\n  ✓ Resultado exportado: {caminho}")
 
 
 # ──────────────────────────────────────────────
@@ -581,15 +605,7 @@ def main():
 
     if not df_res.empty:
         ancora_safe = ancora.replace('/', '_').replace('"', 'in').replace(',', '-').replace(' ', '_')
-        agora = datetime.now()
-        #nome = f"plano_{ancora_safe}_esp{str(esp).replace('.', '-')}_{tipo.replace(' ', '_')}_L{largura}.xlsx"
-        
-        timestamp = agora.strftime('%Y%m%d_%H%M%S')
-        esp_formatado = str(esp).replace('.', '-')
-        tipo_formatado = tipo.replace(' ', '_')
-
-        nome = f"plano_{ancora_safe}_esp{esp_formatado}_{tipo_formatado}_L{largura}_{timestamp}.xlsx"
-
+        nome = f"plano_{ancora_safe}_esp{str(esp).replace('.', '-')}_{tipo.replace(' ', '_')}_L{largura}.xlsx"
         exportar_xlsx(
             df_res, largura, ancora, esp, tipo,
             os.path.join(BASE_OUTPUT, nome),
@@ -601,4 +617,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
