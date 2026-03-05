@@ -1,4 +1,4 @@
-# Plano de Corte - Otimizador de Combinações de Matrizes
+# Plano de Corte - Combinações de Matrizes
 
 Sistema inteligente para otimização de corte de bobinas de aço, desenvolvido para a indústria de tubos e perfis metálicos.
 
@@ -64,7 +64,7 @@ Na fabricação de tubos metálicos, bobinas de aço com largura fixa (1000, 120
 Combinação: 50,80-2"(x1) + 300X75X25(x2) + 21,30-1/2"PT(x1)
 Soma: 1190.0 mm
 Perda: 10.0 mm (0.83%)
-Status: ✓ Válida
+Status: Válida
 ```
 
 **Resultado:**
@@ -176,7 +176,7 @@ Para cada largura L em [1200, 1000, 1500]:
 
 ---
 
-## 🚀 Instalação
+## Instalação
 
 ### Pré-requisitos
 
@@ -222,7 +222,7 @@ plano-corte/
 
 ---
 
-## 💻 Como Usar
+## Como Usar
 
 ### Passo 1: Preparar Base de Dados
 
@@ -354,8 +354,8 @@ Cada função possui:
 
 **Resultado:**
 ```
-✓ 102 combinações válidas
-⚠ 2 combinações fora da regra (perda < 10mm)
+102 combinações válidas
+2 combinações fora da regra (perda < 10mm)
 
 Melhor combinação:
 50,80-2"(x1) + 300X75X25(x2) + 21,30-1/2"PT(x1)
@@ -371,8 +371,8 @@ Perda: 10.0 mm (0.83%) | KG: 1.891 kg | ✓ Válida
 
 **Resultado:**
 ```
-✓ 15 combinações válidas
-⚠ 6 combinações fora da regra (perda < 14mm)
+15 combinações válidas
+6 combinações fora da regra (perda < 14mm)
 
 Exemplo de combinação fora da regra:
 152,40-6"(x1) + 101,60-4"(x1) + 75X40(x3)
@@ -422,7 +422,7 @@ QTD_BOBINAS_PAD = 1
 |------------|-------|---------|
 | Janela de perda | `PERDA_MIN_PCT` / `PERDA_MAX_PCT` | `0.50` / `2.00` |
 | Refilo mínimo | `REFILO_MIN_ATE_3MM` / `REFILO_MIN_ACIMA_3MM` | `12` / `16` |
-| Mais complementares | `MAX_COMP_NA_COMBO` | `3` (⚠️ lento) |
+| Mais complementares | `MAX_COMP_NA_COMBO` | `3` (lento) |
 | Novas larguras | `LARGURAS_BOBINA` | `[1200, 1000, 1500, 1800]` |
 
 ---
@@ -483,7 +483,7 @@ Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para ma
 
 ## Autor
 
-**Jefersson Souza**
+**Jefersson Souza Pedro**
 
-- GitHub: [@jeferssonsouza](https://github.com/jefersondev18)
+- GitHub: [@jefersondev18](https://github.com/jefersondev18)
 - Empresa: Açotel Indústria e Comércio LTDA
