@@ -16,6 +16,11 @@ Regras de negócio:
   7. QUANTIDADE DE KG por combinação (calculada por matriz):
         Peso_médio_bobina = Peso_informado / Qtd_bobinas  (se não informado: 12.000 / 1 = 12.000 kg)
         KG_i = (Peso_médio_bobina / Largura_bobina) × (N_cortes_i × Desenvolvimento_i × Qtd_bobinas)
+  
+  8. Criar versão personalizada de desenvolvimento com opção de conjuntar com itens já existentes.
+  Ou seja, O usuário escolhe item existente ou não, informa o Tipo de material que ele faz parte e a espessura
+  e o sistema conjunta com os itens da mesma categoria
+
 """
 
 import os
@@ -23,6 +28,9 @@ import platform
 import pandas as pd
 from itertools import combinations, product as iproduct
 from datetime import datetime
+
+
+
 # ──────────────────────────────────────────────
 #  PATHS
 # ──────────────────────────────────────────────
@@ -37,9 +45,13 @@ def get_current_user():
     else:
         return os.getenv('USER')
 
+
 USUARIO = get_current_user()
 print(f"Usuário: {USUARIO}")
 
+if USUARIO != "jefersson.souza":
+    print(f'Usuário {USUARIO}, Não permitido')
+    
 
 if SO == 'Windows':
     BASE_INPUT  = r'C:\Users\jefersson.souza\OneDrive - Açotel Indústria e Comércio LTDA\Dev\Plano_corte_py\files\input'
@@ -55,7 +67,7 @@ else:
 # ──────────────────────────────────────────────
 LARGURAS_BOBINA     = [1200, 1000, 1500]   # ordem de tentativa
 PERDA_MIN_PCT       = 0.67                 # % mínimo de perda aceito
-PERDA_MAX_PCT       = 1.70                 # % máximo de perda aceito
+PERDA_MAX_PCT       = 1.65                 # % máximo de perda aceito
 MAX_COMP_NA_COMBO   = 1                    # máx de matrizes COMPLEMENTARES por combinação
 
 # REFILO — regras por espessura
@@ -166,7 +178,7 @@ def _buscar_para_largura(
         
         if passa_pct and passa_cortes:
             if passa_refilo:
-                status = "✓ Válida"
+                status = "Válida"
             else:
                 status = "Fora da regra"
             
@@ -218,7 +230,7 @@ def _buscar_para_largura(
                     
                     if passa_pct:
                         if passa_refilo:
-                            status = "✓ Válida"
+                            status = "Válida"
                         else:
                             status = "Fora da regra"
                         
@@ -298,7 +310,7 @@ def encontrar_combinacoes(
         )
 
         if resultados:
-            print(f"{len(resultados)} combinações encontradas. ✓")
+            print(f"{len(resultados)} combinações encontradas.")
             df_res = (
                 pd.DataFrame(resultados)
                 .sort_values(['Perda_pct', 'N_ancora', 'Num_comp'])
@@ -335,7 +347,7 @@ def exibir(df_res: pd.DataFrame, largura: int,
         print(f"  Limite cortes  : {limite_cortes} cortes (soma total por combinação)")
 
     if df_res.empty:
-        print(f"\n  ⚠  Nenhuma combinação válida encontrada em nenhuma largura de bobina.")
+        print(f"\n  Nenhuma combinação válida encontrada em nenhuma largura de bobina.")
         print(f"     Sugestão: revise os parâmetros ou amplie MAX_COMP_NA_COMBO.")
         print(sep)
         return
@@ -452,7 +464,7 @@ def exportar_xlsx(df_res: pd.DataFrame, largura: int,
         
         # Cor do status: verde se válida, laranja se fora da regra
         status_val = row['Status']
-        status_bg  = VERDE if status_val == "✓ Válida" else "FFE0B2"  # laranja claro
+        status_bg  = VERDE if status_val == "Válida" else "FFE0B2"  # laranja claro
         
         cel(ws1, r, 1, i + 1,                   bg=bg,        align="center")
         cel(ws1, r, 2, row['Combinacao'],        bg=bg,        wrap=True)
@@ -628,9 +640,6 @@ def main():
         tipo_formatado = tipo.replace(' ', '_')
 
         nome = f"plano_{ancora_safe}_esp{esp_formatado}_{tipo_formatado}_L{largura}_{timestamp}.xlsx"
-
-
-
 
         exportar_xlsx(
             df_res, largura, ancora, esp, tipo,
